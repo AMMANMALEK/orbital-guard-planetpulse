@@ -20,7 +20,7 @@ export interface Detection {
 
 export interface Alert {
   id: string; detectionId: string; type: DetectionType; severity: RiskLevel;
-  status: 'active' | 'investigating' | 'resolved';
+  status: 'active' | 'investigating' | 'resolved' | 'pending_confirmation';
   message: string; date: string; region: string; notes?: string;
 }
 

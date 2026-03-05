@@ -2,8 +2,7 @@ import { motion } from 'framer-motion';
 import { MapPin, AlertTriangle, Shield, Activity } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import StatCard from '@/components/StatCard';
-import MapView from '@/components/MapView';
-import { monthlyDetections, mapPoints, alerts } from '@/data/mockData';
+import { monthlyDetections, alerts } from '@/data/mockData';
 import RiskBadge from '@/components/RiskBadge';
 
 const OfficerDashboard = () => (
@@ -18,10 +17,10 @@ const OfficerDashboard = () => (
       <StatCard title="High Risk Cases" value="3" icon={Shield} />
       <StatCard title="Detection Accuracy" value="92.3%" icon={Activity} />
     </div>
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-border bg-card p-6">
         <h3 className="text-lg font-semibold text-card-foreground mb-4">Detection Trend</h3>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={350}>
           <LineChart data={monthlyDetections}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
             <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} />
@@ -30,10 +29,6 @@ const OfficerDashboard = () => (
             <Line type="monotone" dataKey="detections" stroke="#10b981" strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
-      </motion.div>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-xl border border-border bg-card p-6">
-        <h3 className="text-lg font-semibold text-card-foreground mb-4">Region Map</h3>
-        <MapView points={mapPoints.filter(p => p.label.includes('Kudremukh') || p.label.includes('Nilgiri') || p.label.includes('Wayanad'))} className="h-[280px]" />
       </motion.div>
     </div>
     <div className="rounded-xl border border-border bg-card p-6">

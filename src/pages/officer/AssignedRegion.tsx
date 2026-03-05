@@ -1,5 +1,5 @@
 import MapView from '@/components/MapView';
-import { mapPoints, regions } from '@/data/mockData';
+import { regions } from '@/data/mockData';
 import RiskBadge from '@/components/RiskBadge';
 
 const AssignedRegion = () => (
@@ -9,7 +9,7 @@ const AssignedRegion = () => (
       <p className="text-muted-foreground">Western Ghats monitoring overview</p>
     </div>
     <div className="rounded-xl border border-border bg-card p-6">
-      <MapView points={mapPoints} className="h-[500px]" />
+      <MapView className="h-[500px]" filterRegion="Western Ghats" />
     </div>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {regions.slice(0, 3).map(r => (
