@@ -51,3 +51,24 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+/**
+ * Safely extract a human-readable error message from any Axios error.
+ * Handles FastAPI 422 validation arrays, plain string details, and unknown shapes.
+ */
+export function getErrorMessage(err: unknown, fallback = 'An error occurred'): string {
+  try {
+    const detail = (err as any)?.response?.data?.detail;
+    if (!detail) return fallback;
+    // FastAPI 422 validation: detail is an array of {msg, loc, ...}
+    if (Array.isArray(detail)) {
+      return detail.map((d: any) => (typeof d === 'string' ? d : d?.msg ?? JSON.stringify(d))).join('; ');
+    }
+    // Plain string detail
+    if (typeof detail === 'string') return detail;
+    // Object or other
+    return JSON.stringify(detail);
+  } catch {
+    return fallback;
+  }
+}

@@ -9,7 +9,7 @@ type RiskLevel = 'high' | 'medium' | 'low';
 interface Detection {
   id: string;
   location: string;
-  prediction: string;
+  violation_type: string;
   risk_score: number;
   confidence: number;
   status: string;
@@ -82,8 +82,8 @@ const DataAccess = () => {
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No detections found.</td></tr>
               ) : filtered.map(d => (
                 <tr key={d.id} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="px-4 py-3 font-medium text-card-foreground">{d.location}</td>
-                  <td className="px-4 py-3 text-muted-foreground capitalize">{d.prediction?.replace(/-/g, ' ')}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">{d.location}</td>
+                  <td className="px-4 py-3 text-muted-foreground capitalize">{d.violation_type?.replace(/_/g, ' ')}</td>
                   <td className="px-4 py-3"><RiskBadge level={riskFromScore(d.risk_score)} /></td>
                   <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${d.status === 'detected' ? 'bg-destructive/20 text-destructive' : d.status === 'investigating' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-emerald-500/20 text-emerald-500'}`}>{d.status}</span></td>
                   <td className="px-4 py-3 text-muted-foreground">{d.timestamp?.split('T')[0]}</td>

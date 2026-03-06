@@ -5,12 +5,15 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 from .config import get_settings
 from .database import close_mongo_connection, connect_to_mongo
 from .routes import alerts, auth, complaints, detections, stats, users
 from .utils.image_processing import parse_classes
-from .utils.model_loader import ModelRunner
+from .services.socket_manager import socket_app
 
 
 def create_app() -> FastAPI:
@@ -20,8 +23,14 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],          # Allow all origins in dev – restrict in production
-        allow_credentials=False,      # Must be False when allow_origins=["*"]
+        allow_origins=[
+            "http://localhost:8080", 
+            "http://127.0.0.1:8080", 
+            "http://localhost:8081",
+            "http://localhost:8082",
+            "http://localhost:5173"
+        ],
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -29,6 +38,7 @@ def create_app() -> FastAPI:
     uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+    app.mount("/ws", socket_app)
 
     app.include_router(auth.router)
     app.include_router(users.router)
@@ -37,44 +47,9 @@ def create_app() -> FastAPI:
     app.include_router(complaints.router)
     app.include_router(stats.router)
 
-    @app.get("/api/health")
-    async def health():
-        model_loaded = bool(getattr(app.state, "model_runner", None)) and app.state.model_runner.is_loaded
-        return {"ok": True, "model_loaded": model_loaded, "db": settings.mongo_db}
-
-    @app.post("/api/model/test")
-    async def test_model(file: __import__("fastapi").UploadFile):
-        runner = app.state.model_runner
-        if not runner.is_loaded:
-            raise HTTPException(status_code=500, detail="Model not loaded")
-        
-        # Save temp file
-        temp_path = Path("tmp_test_image.jpg")
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-            
-        try:
-            res = runner.infer(str(temp_path))
-            return {
-                "prediction": res.prediction,
-                "confidence": res.confidence,
-                "risk_score": res.risk_score
-            }
-        finally:
-            if temp_path.exists():
-                temp_path.unlink()
-
     @app.on_event("startup")
     async def _startup():
         await connect_to_mongo()
-        runner = ModelRunner(settings.model_path, parse_classes(settings.model_classes))
-        try:
-            runner.load()
-        except FileNotFoundError:
-            # API still starts; inference endpoint will return a clear error.
-            pass
-        app.state.model_runner = runner
-
     @app.on_event("shutdown")
     async def _shutdown():
         await close_mongo_connection()

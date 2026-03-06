@@ -1,14 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { Upload, CheckCircle2, Loader2, FileText } from 'lucide-react';
 import DetectionResultCard from '@/components/DetectionResultCard';
+import { ScanningAnimation } from '@/components/ScanningAnimation';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { getErrorMessage } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+
+interface DetectionResult {
+  violation_type: string;
+  confidence: number;
+  risk_score: number;
+}
 
 interface Detection {
   id: string;
   location: string;
-  prediction: string;
+  violation_type: string;
   risk_score: number;
   confidence: number;
   status: string;
@@ -60,14 +67,12 @@ const ImageDetection = () => {
       formData.append('region', user?.assigned_region?.name || 'Unknown');
       formData.append('lat', String(user?.assigned_region?.latitude || 20.0));
       formData.append('lng', String(user?.assigned_region?.longitude || 78.0));
-      const res = await api.post('/detections/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/detections/analyze', formData);
       setResult(res.data);
       toast.success('AI detection complete!');
       fetchDetections();
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Detection failed');
+      toast.error(getErrorMessage(err, 'Detection failed'));
     } finally {
       setUploading(false);
     }
@@ -118,11 +123,13 @@ const ImageDetection = () => {
         </div>
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="text-lg font-semibold text-card-foreground mb-4">Detection Result</h3>
-          {result ? (
+          {uploading ? (
+            <ScanningAnimation />
+          ) : result ? (
             <div className="space-y-3">
               <div className="flex justify-between p-3 rounded-lg bg-muted/30 border border-border">
                 <span className="text-sm text-muted-foreground">Prediction</span>
-                <span className="text-sm font-bold capitalize">{result.prediction?.replace(/-/g, ' ')}</span>
+                <span className="text-sm font-bold capitalize">{result.violation_type?.replace(/_/g, ' ')}</span>
               </div>
               <div className="flex justify-between p-3 rounded-lg bg-muted/30 border border-border">
                 <span className="text-sm text-muted-foreground">Confidence</span>
@@ -152,7 +159,7 @@ const ImageDetection = () => {
                 key={d.id}
                 id={d.id}
                 location={d.location}
-                type={d.prediction as any}
+                type={d.violation_type as any}
                 riskScore={d.risk_score}
                 confidenceScore={Math.round(d.confidence * 100)}
                 riskLevel={d.risk_score >= 80 ? 'high' : d.risk_score >= 50 ? 'medium' : 'low'}

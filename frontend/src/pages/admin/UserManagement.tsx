@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { getErrorMessage } from '@/lib/api';
 import OfficerRegionSelector from '@/components/OfficerRegionSelector';
 import OfficerLocationPreview from '@/components/OfficerLocationPreview';
 import { Badge } from '@/components/ui/badge';
@@ -85,7 +85,7 @@ const UserManagement = () => {
       resetForm();
       fetchUsers();
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Failed to create user');
+      toast.error(getErrorMessage(err, 'Failed to create user'));
     }
   };
 
@@ -104,7 +104,7 @@ const UserManagement = () => {
       toast.success('User deleted');
       setUsers(prev => prev.filter(u => u.id !== id));
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Failed to delete user');
+      toast.error(getErrorMessage(err, 'Failed to delete user'));
     }
   };
 

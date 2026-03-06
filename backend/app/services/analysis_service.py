@@ -1,25 +1,31 @@
-import os
+from typing import List
 from pathlib import Path
-from fastapi import Request
-from ..utils.model_loader import ModelRunner, InferenceResult
+from .gemini_service import analyze_environment_image
 
-async def run_ai_analysis(image_path: str, model_runner: ModelRunner) -> InferenceResult:
+async def run_ai_analysis(image_paths: List[str], runner=None):
     """
-    Runs AI model inference on the provided satellite image.
+    Runs AI analysis. Since the exact user code expects a single local file path,
+    we extract the first valid local file path and pass it to Gemini.
     """
-    # In a real app, image_path would be absolute for the model runner
-    # The image path returned from capture_satellite_imagery is relative to uploads
-    
-    # Get absolute path
     base_dir = Path(__file__).resolve().parents[2]
-    if image_path.startswith("/"):
-        abs_image_path = base_dir / image_path.lstrip("/")
-    else:
-        abs_image_path = base_dir / image_path
+    
+    clean_path = None
+    for image_path in image_paths:
+        if not image_path: continue
+        if image_path.startswith("data:") or image_path.startswith("http"):
+            continue 
+            
+        abs_path = None
+        if image_path.startswith("/"):
+            abs_path = base_dir / image_path.lstrip("/")
+        else:
+            abs_path = base_dir / image_path
+            
+        if abs_path and abs_path.exists():
+            clean_path = str(abs_path)
+            break
+            
+    if not clean_path:
+        return {"violation_type": "unknown", "confidence": 0.0, "risk_score": 0}
         
-    if not abs_image_path.exists():
-        raise FileNotFoundError(f"Image not found at {abs_image_path}")
-        
-    # Run inference
-    result = model_runner.infer(str(abs_image_path))
-    return result
+    return analyze_environment_image(clean_path)

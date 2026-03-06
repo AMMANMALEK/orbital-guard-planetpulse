@@ -117,7 +117,7 @@ export default function AdminComplaints() {
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">{c.description || ''}</p>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground capitalize text-xs">
-                      {c.violation_type?.replace(/-/g, ' ') || '—'}
+                      {c.violation_type?.replace(/_/g, ' ') || '—'}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">{c.region || '—'}</td>
                     <td className="px-4 py-3">

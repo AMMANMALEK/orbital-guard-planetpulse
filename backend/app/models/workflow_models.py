@@ -11,7 +11,7 @@ class SatelliteImageRecord(BaseModel):
 class DetectionRecord(BaseModel):
     id: Optional[str] = None
     complaint_id: str
-    prediction: str
+    violation_type: str
     confidence: float
     risk_score: int
     analyzed_at: str = datetime.utcnow().isoformat()
@@ -22,7 +22,7 @@ class ReportRecord(BaseModel):
     viewer_email: str
     complaint_images_urls: List[str] = []
     satellite_image_url: Optional[str] = None
-    ai_prediction: str
+    ai_violation_type: str
     risk_score: int
     officer_comments: Optional[str] = None
     status: str

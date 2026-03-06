@@ -86,7 +86,7 @@ const PublicReports = () => {
                    <div className="mt-auto flex items-center justify-between border-t pt-4">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                         AI Result: <span className="font-bold text-card-foreground capitalize">{report.ai_prediction.replace('-', ' ')}</span>
+                         AI Result: <span className="font-bold text-card-foreground capitalize">{report.ai_violation_type?.replace('_', ' ')}</span>
                       </div>
                       <div className="flex items-center gap-4">
                         <span className="text-xs text-muted-foreground">Conf: {(report.ai_confidence * 100).toFixed(1)}%</span>

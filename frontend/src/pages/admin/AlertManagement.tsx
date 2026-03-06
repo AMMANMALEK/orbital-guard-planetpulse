@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import RiskBadge from '@/components/RiskBadge';
 import { Edit2, ShieldAlert, CheckCircle2, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { getErrorMessage } from '@/lib/api';
 
 type RiskLevel = 'high' | 'medium' | 'low';
 type AlertStatus = 'active' | 'investigating' | 'resolved' | 'pending_confirmation';
@@ -46,7 +46,7 @@ const AlertManagement = () => {
       setAlerts(prev => prev.map(a => a.id === id ? res.data : a));
       toast.success(`Alert marked as ${newStatus}`);
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Failed to update alert');
+      toast.error(getErrorMessage(err, 'Failed to update alert'));
     }
   };
 
@@ -61,7 +61,7 @@ const AlertManagement = () => {
       toast.success('Alert intelligence updated');
       setEditingAlert(null);
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Failed to update alert');
+      toast.error(getErrorMessage(err, 'Failed to update alert'));
     }
   };
 

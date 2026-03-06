@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { MapPin, Camera, Brain, CheckCircle, XCircle, ChevronLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ScanningAnimation } from '@/components/ScanningAnimation';
 import api from '@/lib/api';
 import L from 'leaflet';
 
@@ -63,7 +64,7 @@ const OfficerInvestigation = () => {
     setCapturing(true);
     try {
       const res = await api.post(`/complaints/${id}/capture`);
-      setComplaint({ ...complaint, ...res.data, satellite_image_url: res.data.image_url, ai_prediction: res.data.prediction, ai_confidence: res.data.confidence, ai_risk_score: res.data.risk_score });
+      setComplaint({ ...complaint, ...res.data, satellite_image_url: res.data.image_url, ai_violation_type: res.data.violation_type, ai_confidence: res.data.confidence, ai_risk_score: res.data.risk_score });
       toast.success('Satellite image captured and analyzed');
     } catch (err) {
       toast.error('Failed to capture satellite image');
@@ -158,11 +159,13 @@ const OfficerInvestigation = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {!complaint.ai_prediction ? (
+              {!complaint.ai_violation_type ? capturing ? (
+                <ScanningAnimation />
+              ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">No satellite data analyzed yet.</p>
                   <Button onClick={handleCapture} disabled={capturing} className="w-full">
-                    {capturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                    <Camera className="mr-2 h-4 w-4" />
                     Capture Satellite Image & Run AI
                   </Button>
                 </div>
@@ -171,7 +174,7 @@ const OfficerInvestigation = () => {
                   <div className="grid grid-cols-2 gap-4">
                      <div className="bg-background p-3 rounded-lg border">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground">AI Prediction</p>
-                        <p className="text-lg font-bold text-primary">{complaint.ai_prediction.replace('-', ' ')}</p>
+                        <p className="text-lg font-bold text-primary">{complaint.ai_violation_type?.replace('_', ' ')}</p>
                      </div>
                      <div className="bg-background p-3 rounded-lg border">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground">Confidence</p>

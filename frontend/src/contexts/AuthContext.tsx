@@ -10,6 +10,8 @@ interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  assigned_state?: string;
+  assigned_city?: string;
   assigned_region?: {
     name: string;
     latitude: number;
@@ -40,6 +42,8 @@ const TEST_ACCOUNTS: Record<string, AuthUser & { password: string }> = {
     name: 'Test Admin',
     email: 'admin@test.com',
     role: 'admin',
+    assigned_state: 'India',
+    assigned_city: 'Delhi',
     assigned_region: { name: 'Global', latitude: 20.5937, longitude: 78.9629 },
     password: 'admin123',
   },
@@ -48,6 +52,8 @@ const TEST_ACCOUNTS: Record<string, AuthUser & { password: string }> = {
     name: 'Test Officer',
     email: 'officer@test.com',
     role: 'officer',
+    assigned_state: 'Gujarat',
+    assigned_city: 'Anand',
     assigned_region: { name: 'Western Ghats', latitude: 13.217, longitude: 75.143 },
     password: 'officer123',
   },
@@ -136,6 +142,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: userData.name,
         email: userData.email,
         role: userData.role,
+        assigned_state: userData.assigned_state,
+        assigned_city: userData.assigned_city,
         assigned_region: userData.assigned_region,
       };
       persistUser(u, access_token);
@@ -160,6 +168,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       name: userData.name,
       email: userData.email,
       role: userData.role,
+      assigned_state: userData.assigned_state,
+      assigned_city: userData.assigned_city,
       assigned_region: userData.assigned_region,
     };
     persistUser(u, access_token);

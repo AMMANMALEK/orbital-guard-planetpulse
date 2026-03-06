@@ -202,7 +202,8 @@ const MapView = ({ className, filterRegion }: MapViewProps) => {
       const res = await api.get('/detections');
       const apiDetections = res.data.map((d: any) => ({
         id: d.id,
-        detectionType: d.prediction || 'Unknown',
+        confidenceScore: Math.round(d.confidence * 100),
+        detectionType: d.violation_type || 'Unknown',
         riskScore: d.risk_score || 0,
         riskLevel: d.risk_score >= 80 ? 'Critical' : d.risk_score >= 50 ? 'High' : d.risk_score >= 30 ? 'Medium' : 'Low',
         latitude: d.latitude,
@@ -218,7 +219,30 @@ const MapView = ({ className, filterRegion }: MapViewProps) => {
         }
       }));
 
-      setDetections(apiDetections);
+      // Strict coordinate validation and filtering
+      console.log(`[MapView] Received ${apiDetections.length} total detections from API`);
+      
+      const validDetections = apiDetections.filter((d: Detection) => {
+        const isValid = typeof d.latitude === 'number' && 
+                        typeof d.longitude === 'number' && 
+                        !isNaN(d.latitude) && 
+                        !isNaN(d.longitude) &&
+                        d.latitude >= -90 && d.latitude <= 90 &&
+                        d.longitude >= -180 && d.longitude <= 180;
+        
+        if (!isValid) {
+          console.warn(`[MapView] Filtering out malformed detection record:`, {
+            id: d.id,
+            type: d.detectionType,
+            lat: d.latitude,
+            lng: d.longitude
+          });
+        }
+        return isValid;
+      });
+
+      console.log(`[MapView] Validated ${validDetections.length} detections for map rendering`);
+      setDetections(validDetections);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch detections:', error);
@@ -474,7 +498,15 @@ const MapView = ({ className, filterRegion }: MapViewProps) => {
             ))}
 
             {/* Auto centering when region filter changes */}
-            {filterRegion && <MapEffect bounds={filteredDetections.length > 0 ? L.latLngBounds(filteredDetections.map(d => [d.latitude, d.longitude])) : undefined} />}
+            {filterRegion && (() => {
+              const validPoints = filteredDetections
+                .filter(d => typeof d.latitude === 'number' && typeof d.longitude === 'number' && !isNaN(d.latitude) && !isNaN(d.longitude))
+                .map(d => [d.latitude, d.longitude] as [number, number]);
+              
+              return validPoints.length > 0 
+                ? <MapEffect bounds={L.latLngBounds(validPoints)} /> 
+                : null;
+            })()}
           </MapContainer>
 
           <MapLegend />
@@ -553,88 +585,101 @@ const MapView = ({ className, filterRegion }: MapViewProps) => {
 };
 
 // Sub-component for individual markers for cleaner rendering
-const DetectionMarker = ({ detection }: { detection: Detection }) => (
-  <Marker
-    position={[detection.latitude, detection.longitude]}
-    icon={createCustomIcon(detection.riskLevel)}
-  >
-    <Popup className="custom-popup" minWidth={320}>
-      <div className="space-y-4 font-sans p-2">
-        <div className="flex items-center justify-between border-b border-border/30 pb-3">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <Target className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[10px] font-black text-primary uppercase tracking-widest">OBJ #{detection.id}</span>
-            </div>
-            <span className="text-base font-bold text-foreground mt-1">{detection.detectionType}</span>
-          </div>
-          <Badge
-            variant="outline"
-            className={cn(
-              "px-3 py-1 rounded-full border-2 uppercase font-black tracking-tighter text-[10px]",
-              detection.riskLevel === 'Critical' ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                detection.riskLevel === 'High' ? "bg-orange-500/10 text-orange-500 border-orange-500/20" :
-                  detection.riskLevel === 'Medium' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
-                    "bg-green-500/10 text-green-500 border-green-500/20"
-            )}
-          >
-            {detection.riskLevel}
-          </Badge>
-        </div>
+const DetectionMarker = ({ detection }: { detection: Detection }) => {
+  // Final safeguard before rendering Leaflet Marker
+  const isValidCoord = typeof detection.latitude === 'number' && 
+                       typeof detection.longitude === 'number' && 
+                       !isNaN(detection.latitude) && 
+                       !isNaN(detection.longitude);
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5 p-2 rounded-xl bg-muted/20 border border-border/10">
-            <p className="text-[10px] text-muted-foreground uppercase font-black flex items-center gap-1.5">
-              <Maximize className="h-3 w-3" /> Area
+  if (!isValidCoord) {
+    console.error(`[DetectionMarker] Critical: Attempted to render marker with invalid coordinates for ID ${detection.id}`);
+    return null;
+  }
+
+  return (
+    <Marker
+      position={[detection.latitude, detection.longitude]}
+      icon={createCustomIcon(detection.riskLevel)}
+    >
+      <Popup className="custom-popup" minWidth={320}>
+        <div className="space-y-4 font-sans p-2">
+          <div className="flex items-center justify-between border-b border-border/30 pb-3">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <Target className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">OBJ #{detection.id}</span>
+              </div>
+              <span className="text-base font-bold text-foreground mt-1">{detection.detectionType}</span>
+            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "px-3 py-1 rounded-full border-2 uppercase font-black tracking-tighter text-[10px]",
+                detection.riskLevel === 'Critical' ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                  detection.riskLevel === 'High' ? "bg-orange-500/10 text-orange-500 border-orange-500/20" :
+                    detection.riskLevel === 'Medium' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
+                      "bg-green-500/10 text-green-500 border-green-500/20"
+              )}
+            >
+              {detection.riskLevel}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5 p-2 rounded-xl bg-muted/20 border border-border/10">
+              <p className="text-[10px] text-muted-foreground uppercase font-black flex items-center gap-1.5">
+                <Maximize className="h-3 w-3" /> Area
+              </p>
+              <p className="text-sm font-bold text-foreground">{detection.metadata.areaHectares} Hectares</p>
+            </div>
+            <div className="space-y-1.5 p-2 rounded-xl bg-muted/20 border border-border/10">
+              <p className="text-[10px] text-muted-foreground uppercase font-black flex items-center gap-1.5">
+                <Shield className="h-3 w-3" /> Confidence
+              </p>
+              <p className="text-sm font-bold text-primary">{detection.confidence}% AI Certainty</p>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-[10px] text-muted-foreground uppercase font-black">Risk Severity</p>
+                <span className="text-xs font-black text-foreground">{detection.riskScore}/100</span>
+              </div>
+              <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-border/20">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-1000 ease-out",
+                    detection.riskLevel === 'Critical' ? "bg-red-500" :
+                      detection.riskLevel === 'High' ? "bg-orange-500" :
+                        detection.riskLevel === 'Medium' ? "bg-yellow-500" : "bg-emerald-500"
+                  )}
+                  style={{ width: `${detection.riskScore}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+            <p className="text-[10px] text-primary uppercase font-black mb-1.5 flex items-center gap-2">
+              <MapIcon className="h-3 w-3" /> Intelligence Summary
             </p>
-            <p className="text-sm font-bold text-foreground">{detection.metadata.areaHectares} Hectares</p>
-          </div>
-          <div className="space-y-1.5 p-2 rounded-xl bg-muted/20 border border-border/10">
-            <p className="text-[10px] text-muted-foreground uppercase font-black flex items-center gap-1.5">
-              <Shield className="h-3 w-3" /> Confidence
+            <p className="text-xs leading-relaxed text-foreground/90 italic">
+              Detected anomally within {detection.locationDetails}. Status marked as <span className="font-bold underline">{detection.status}</span>.
             </p>
-            <p className="text-sm font-bold text-primary">{detection.confidence}% AI Certainty</p>
           </div>
-          <div className="col-span-2 space-y-2">
-            <div className="flex justify-between items-center mb-1">
-              <p className="text-[10px] text-muted-foreground uppercase font-black">Risk Severity</p>
-              <span className="text-xs font-black text-foreground">{detection.riskScore}/100</span>
-            </div>
-            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-border/20">
-              <div
-                className={cn(
-                  "h-full transition-all duration-1000 ease-out",
-                  detection.riskLevel === 'Critical' ? "bg-red-500" :
-                    detection.riskLevel === 'High' ? "bg-orange-500" :
-                      detection.riskLevel === 'Medium' ? "bg-yellow-500" : "bg-emerald-500"
-                )}
-                style={{ width: `${detection.riskScore}%` }}
-              ></div>
-            </div>
+
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono bg-muted/30 p-2 rounded-lg border border-border/10">
+            <span className="flex items-center gap-1.5"><Satellite className="h-3.5 w-3.5" /> Source: {detection.metadata.satelliteSource}</span>
+            <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {new Date(detection.timestamp).toLocaleTimeString()}</span>
           </div>
-        </div>
 
-        <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
-          <p className="text-[10px] text-primary uppercase font-black mb-1.5 flex items-center gap-2">
-            <MapIcon className="h-3 w-3" /> Intelligence Summary
-          </p>
-          <p className="text-xs leading-relaxed text-foreground/90 italic">
-            Detected anomally within {detection.locationDetails}. Status marked as <span className="font-bold underline">{detection.status}</span>.
-          </p>
+          <Button variant="default" className="w-full py-6 text-xs font-black tracking-[0.1em] group/btn rounded-xl shadow-xl hover:shadow-primary/20 transition-all">
+            ACCESS FULL CLASSIFIED DOSSIER
+            <Maximize className="ml-2 h-4 w-4 group-hover/btn:scale-110 transition-transform" />
+          </Button>
         </div>
-
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono bg-muted/30 p-2 rounded-lg border border-border/10">
-          <span className="flex items-center gap-1.5"><Satellite className="h-3.5 w-3.5" /> Source: {detection.metadata.satelliteSource}</span>
-          <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {new Date(detection.timestamp).toLocaleTimeString()}</span>
-        </div>
-
-        <Button variant="default" className="w-full py-6 text-xs font-black tracking-[0.1em] group/btn rounded-xl shadow-xl hover:shadow-primary/20 transition-all">
-          ACCESS FULL CLASSIFIED DOSSIER
-          <Maximize className="ml-2 h-4 w-4 group-hover/btn:scale-110 transition-transform" />
-        </Button>
-      </div>
-    </Popup>
-  </Marker>
-);
+      </Popup>
+    </Marker>
+  );
+};
 
 export default MapView;

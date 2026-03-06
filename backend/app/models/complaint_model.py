@@ -10,9 +10,8 @@ ViolationType = Literal["illegal_mining", "deforestation", "river-encroachment",
 
 class ComplaintCreate(BaseModel):
     violation_type: ViolationType
-    location_name: str
-    latitude: float
-    longitude: float
+    state: str
+    city: str
     description: str
     complaint_images: List[str] = Field(default_factory=list)  # List of data URLs or uploaded image URLs
     submittedBy: str
@@ -21,7 +20,8 @@ class ComplaintCreate(BaseModel):
 class ComplaintRecord(BaseModel):
     id: str
     violation_type: ViolationType
-    location_name: str
+    state: str
+    city: str
     latitude: float
     longitude: float
     description: str
@@ -30,7 +30,7 @@ class ComplaintRecord(BaseModel):
     submittedBy: str
     submittedAt: str = Field(default_factory=lambda: datetime.utcnow().date().isoformat())
     region: Optional[str] = None
-    assignedOfficerId: Optional[str] = None
+    assigned_officer_id: Optional[str] = None
     officerNotes: Optional[str] = None
     satellite_image_url: Optional[str] = None
     ai_prediction: Optional[str] = None
@@ -41,7 +41,7 @@ class ComplaintRecord(BaseModel):
 class ComplaintUpdate(BaseModel):
     status: Optional[ComplaintStatus] = None
     region: Optional[str] = None
-    assignedOfficerId: Optional[str] = None
+    assigned_officer_id: Optional[str] = None
     officerNotes: Optional[str] = None
     complaint_images: Optional[List[str]] = None
     satellite_image_url: Optional[str] = None

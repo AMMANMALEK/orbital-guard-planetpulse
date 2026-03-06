@@ -22,15 +22,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, MapPin } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import type { ViolationType } from '@/data/mockData';
+import { INDIAN_REGIONS } from '@/data/indianRegions';
 
 const schema = z.object({
-  location_name: z.string().min(3, 'Location name must be at least 3 characters'),
+  state: z.string().min(1, 'Please select a state'),
+  city: z.string().min(1, 'Please select a city'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   violation_type: z.enum(['illegal_mining', 'deforestation', 'river-encroachment', 'pollution', 'other']),
-  latitude: z.number(),
-  longitude: z.number(),
   complaint_images: z.array(z.string()).default([]),
 });
 
@@ -41,31 +41,23 @@ interface ComplaintFormProps {
   submittedBy: string;
 }
 
-function LocationPicker({ onSelect }: { onSelect: (coords: [number, number]) => void }) {
-  useMapEvents({
-    click(e) {
-      onSelect([e.latlng.lat, e.latlng.lng]);
-    },
-  });
-  return null;
-}
-
 export default function ComplaintForm({ onSubmit, submittedBy }: ComplaintFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [coords, setCoords] = useState<[number, number]>([21.1458, 72.8271]); // Surat/Gujarat default
   const [evidenceImages, setEvidenceImages] = useState<string[]>([]);
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      location_name: '',
+      state: '',
+      city: '',
       description: '',
       violation_type: 'illegal_mining',
-      latitude: 21.1458,
-      longitude: 72.8271,
       complaint_images: [],
     },
   });
+
+  const selectedState = form.watch('state');
+  const availableCities = selectedState ? (INDIAN_REGIONS as any)[selectedState] || [] : [];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -96,8 +88,6 @@ export default function ComplaintForm({ onSubmit, submittedBy }: ComplaintFormPr
   const handleSubmit = (values: z.infer<typeof schema>) => {
     onSubmit({
       ...values,
-      latitude: coords[0],
-      longitude: coords[1],
       submittedBy,
     });
     form.reset();
@@ -107,19 +97,57 @@ export default function ComplaintForm({ onSubmit, submittedBy }: ComplaintFormPr
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="location_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Location Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. Bakrol, Anand, Gujarat" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid gap-6 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>State (India)</FormLabel>
+                <Select onValueChange={(val) => {
+                  field.onChange(val);
+                  form.setValue('city', ''); // Reset city on state change
+                }} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.keys(INDIAN_REGIONS).map(state => (
+                      <SelectItem key={state} value={state}>{state}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>City</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedState}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={selectedState ? "Select city" : "Select state first"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {availableCities.map((city: string) => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <FormField
           control={form.control}
           name="violation_type"
@@ -157,42 +185,6 @@ export default function ComplaintForm({ onSubmit, submittedBy }: ComplaintFormPr
             </FormItem>
           )}
         />
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Mark Location on Map
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">Click to specify coordinates</p>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px] rounded-lg overflow-hidden border">
-              <MapContainer
-                center={coords}
-                zoom={10}
-                className="h-full w-full"
-                style={{ minHeight: 200 }}
-              >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <LocationPicker onSelect={(c) => { 
-                  setCoords(c); 
-                  form.setValue('latitude', c[0]); 
-                  form.setValue('longitude', c[1]); 
-                }} />
-              </MapContainer>
-            </div>
-            <div className="flex gap-4 mt-2">
-              <div className="flex-1">
-                 <p className="text-[10px] text-muted-foreground uppercase font-bold">Latitude</p>
-                 <Input value={coords[0].toFixed(6)} readOnly className="h-8 text-xs font-mono" />
-              </div>
-              <div className="flex-1">
-                 <p className="text-[10px] text-muted-foreground uppercase font-bold">Longitude</p>
-                 <Input value={coords[1].toFixed(6)} readOnly className="h-8 text-xs font-mono" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
         <div>
           <FormLabel>Evidence Images (minimum 1 recommended)</FormLabel>
           <input

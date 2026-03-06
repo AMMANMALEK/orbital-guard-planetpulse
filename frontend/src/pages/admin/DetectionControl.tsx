@@ -2,14 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Upload, FileText, CheckCircle2, Loader2 } from 'lucide-react';
 import RiskBadge from '@/components/RiskBadge';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { getErrorMessage } from '@/lib/api';
 
 type RiskLevel = 'high' | 'medium' | 'low';
 
 interface Detection {
   id: string;
   location: string;
-  prediction: string;
+  violation_type: string;
   risk_score: number;
   confidence: number;
   status: string;
@@ -19,7 +19,7 @@ interface Detection {
 }
 
 interface DetectionResult {
-  prediction: string;
+  violation_type: string;
   confidence: number;
   risk_score: number;
 }
@@ -38,7 +38,7 @@ const DetectionControl = () => {
       const res = await api.get('/detections');
       setDetections(Array.isArray(res.data) ? res.data : []);
     } catch {
-      toast.error('Failed to load detections');
+      toast.error(getErrorMessage(err, 'Failed to load detections'));
     } finally {
       setLoading(false);
     }
@@ -72,14 +72,12 @@ const DetectionControl = () => {
       formData.append('region', 'Unknown');
       formData.append('lat', '20.0');
       formData.append('lng', '78.0');
-      const res = await api.post('/detections/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/detections/analyze', formData);
       setResult(res.data);
       toast.success('Detection complete!');
       fetchDetections(); // Refresh list
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Detection failed');
+      toast.error(getErrorMessage(err, 'Detection failed'));
     } finally {
       setUploading(false);
     }
@@ -138,8 +136,8 @@ const DetectionControl = () => {
           {result ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
-                <span className="text-sm text-muted-foreground font-medium">Prediction</span>
-                <span className="text-sm font-bold text-foreground capitalize">{(result.prediction ?? '').replace(/-/g, ' ')}</span>
+                <span className="text-sm text-muted-foreground font-medium">Violation Type</span>
+                <span className="text-sm font-bold text-foreground capitalize">{(result.violation_type ?? '').replace(/_/g, ' ')}</span>
               </div>
               <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
                 <span className="text-sm text-muted-foreground font-medium">Confidence</span>
@@ -186,7 +184,7 @@ const DetectionControl = () => {
               ) : detections.map(d => (
                 <tr key={d.id} className="border-b border-border/50 hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium text-card-foreground">{d.location ?? '—'}</td>
-                  <td className="px-4 py-3 text-muted-foreground capitalize">{(d.prediction ?? '').replace(/-/g, ' ') || '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground capitalize">{(d.violation_type ?? '').replace(/_/g, ' ') || '—'}</td>
                   <td className="px-4 py-3"><RiskBadge level={riskFromScore(d.risk_score ?? 0)} /></td>
                   <td className="px-4 py-3 text-card-foreground font-mono">{d.confidence != null ? (d.confidence * 100).toFixed(0) : '—'}%</td>
                   <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${d.status === 'detected' ? 'bg-destructive/20 text-destructive' : d.status === 'investigating' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-emerald-500/20 text-emerald-500'}`}>{d.status ?? '—'}</span></td>

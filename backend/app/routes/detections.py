@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from ..config import get_settings
 from ..database import get_db
 from ..middleware.auth_middleware import require_roles
-from ..services.detection_service import DetectionService
 from ..utils.image_processing import save_upload
 
 
@@ -50,8 +50,8 @@ async def update_detection(
     return doc
 
 
-@router.post("/upload")
-async def upload_and_detect(
+@router.post("/analyze")
+async def analyze_and_detect(
     request: Request,
     image: UploadFile = File(...),
     location: str = Form("Unknown"),
@@ -63,60 +63,59 @@ async def upload_and_detect(
     settings = get_settings()
     upload_dir = Path(__file__).resolve().parents[2] / "uploads"
     saved = await save_upload(image, upload_dir)
+    abs_path = str(saved.resolve())
     image_url = f"{settings.base_url}/uploads/{saved.name}"
 
-    # Get model runner from app state (set during startup in main.py)
-    model_runner = getattr(request.app.state, "model_runner", None)
-    if model_runner is None or not model_runner.is_loaded:
-        raise HTTPException(
-            status_code=503,
-            detail="AI model is not loaded. Check that the model file exists at the configured path.",
+    print(f"[Detection] Image saved to: {abs_path}")
+
+    # AI Router: Gemini first → OpenRouter fallback
+    from ..services.ai.ai_router import analyze_image
+    result = await analyze_image(image_path=abs_path, image_url=image_url)
+
+    violation_type = str(result.get("violation_type", "unknown"))
+    confidence = float(result.get("confidence", 0.0))
+    risk_score = int(result.get("risk_score", 0))
+
+    print(f"[Detection] Final result: type={violation_type} conf={confidence} risk={risk_score}")
+
+    db = get_db()
+    from ..services.alert_service import AlertService
+
+    now_iso = datetime.utcnow().isoformat()
+    det_id = f"d_{saved.stem}"
+    doc = {
+        "_id": det_id,
+        "image_url": image_url,
+        "violation_type": violation_type,
+        "confidence": confidence,
+        "risk_score": risk_score,
+        "location": location,
+        "coordinates": [lat, lng],
+        "timestamp": now_iso,
+        "region": region,
+        "status": "detected",
+        "created_by": user["id"],
+    }
+    await db.detections.insert_one(doc)
+
+    if risk_score >= 70:
+        severity = "high" if risk_score >= 80 else "medium"
+        await AlertService.create_alert_from_detection(
+            detection_id=det_id,
+            detection_type=violation_type,
+            severity=severity,
+            message=f"AI detected {violation_type.replace('_', ' ')} near {location}",
+            region=region,
+            status="active",
         )
 
-    service = DetectionService(model_runner)
-    try:
-        det = await service.create_detection(
-            image_path=saved,
-            image_url=image_url,
-            location=location,
-            coordinates=(lat, lng),
-            region=region,
-            created_by=user["id"],
-        )
-    except (FileNotFoundError, RuntimeError) as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    doc["id"] = doc["_id"]
+    doc.pop("_id", None)
+    doc["coordinates"] = tuple(doc["coordinates"])
 
     return {
-        "prediction": det["prediction"],
-        "confidence": det["confidence"],
-        "risk_score": det["risk_score"],
-        "detection": det,
+        "violation_type": violation_type,
+        "confidence": confidence,
+        "risk_score": risk_score,
+        "detection": doc,
     }
-
-
-@router.post("/test-model")
-async def test_model(
-    request: Request,
-    image: UploadFile = File(...),
-    _admin=Depends(require_roles("admin", "officer")),
-):
-    settings = get_settings()
-    upload_dir = Path(__file__).resolve().parents[2] / "uploads"
-    saved = await save_upload(image, upload_dir)
-
-    model_runner = getattr(request.app.state, "model_runner", None)
-    if model_runner is None or not model_runner.is_loaded:
-        raise HTTPException(
-            status_code=503,
-            detail="AI model is not loaded.",
-        )
-
-    try:
-        res = model_runner.infer(str(saved))
-        return {
-            "prediction": res.prediction,
-            "confidence": res.confidence,
-            "risk_score": res.risk_score,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

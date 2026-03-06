@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import RiskBadge from '@/components/RiskBadge';
 import { MessageSquare, ShieldAlert, Clock, MapPin, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { getErrorMessage } from '@/lib/api';
 
 type RiskLevel = 'high' | 'medium' | 'low';
 type AlertStatus = 'active' | 'investigating' | 'resolved' | 'pending_confirmation';
@@ -43,7 +43,7 @@ const OfficerAlerts = () => {
       setAlerts(prev => prev.map(a => a.id === id ? res.data : a));
       toast.success(`Operational status updated to ${status}`);
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Failed to update alert');
+      toast.error(getErrorMessage(err, 'Failed to update alert'));
     }
   };
 

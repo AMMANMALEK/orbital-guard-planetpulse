@@ -3,7 +3,7 @@ import ComplaintForm from '@/components/ComplaintForm';
 import { useAuth } from '@/contexts/AuthContext';
 import { MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '@/lib/api';
+import api, { getErrorMessage } from '@/lib/api';
 
 export default function ViewerComplaints() {
   const { user } = useAuth();
@@ -16,7 +16,7 @@ export default function ViewerComplaints() {
       });
       toast.success('Complaint submitted successfully');
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || 'Failed to submit complaint');
+      toast.error(getErrorMessage(err, 'Failed to submit complaint'));
     }
   };
 

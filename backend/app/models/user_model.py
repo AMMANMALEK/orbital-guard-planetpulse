@@ -10,10 +10,9 @@ UserRole = Literal["admin", "officer", "viewer"]
 UserStatus = Literal["active", "inactive"]
 
 
-class AssignedRegion(BaseModel):
-    name: str
-    latitude: float
-    longitude: float
+class AssignedLocation(BaseModel):
+    state: str
+    city: str
 
 
 class UserPublic(BaseModel):
@@ -21,7 +20,9 @@ class UserPublic(BaseModel):
     name: str
     email: EmailStr
     role: UserRole
-    assigned_region: Optional[AssignedRegion] = None
+    assigned_locations: list[AssignedLocation] = Field(default_factory=list)
+    active_complaints_count: int = 0
+    resolved_complaints_count: int = 0
     status: UserStatus = "active"
     lastLogin: str = Field(default_factory=lambda: datetime.utcnow().date().isoformat())
 
@@ -31,7 +32,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     role: UserRole = "viewer"
-    assigned_region: Optional[AssignedRegion] = None
+    assigned_locations: list[AssignedLocation] = Field(default_factory=list)
 
 
 class UserLogin(BaseModel):
